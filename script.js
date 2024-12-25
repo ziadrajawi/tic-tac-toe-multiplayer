@@ -11,8 +11,8 @@ function joinRoom(room) {
     document.getElementById('game-status').innerText = `Vous avez rejoint ${room}. En attente de l'autre joueur...`;
     
     socket.on('roomJoined', (room) => {
-        document.getElementById('game-status').innerText = `Bienvenue dans ${room}!`;
-        document.getElementById('game-board').style.display = 'block';
+        document.getElementById('game-status').innerText = `Bienvenue dans ${room}! Attendez que l'autre joueur rejoigne...`;
+        document.getElementById('game-board').style.display = 'block'; // Afficher le tableau de jeu
     });
 
     socket.on('roomFull', (message) => {
@@ -22,12 +22,12 @@ function joinRoom(room) {
     socket.on('startGame', (message) => {
         document.getElementById('game-status').innerText = message;
     });
-    
+
     socket.on('moveMade', (data) => {
         const { move, player } = data;
         updateBoard(move, player);
     });
-    
+
     socket.on('playerLeft', (message) => {
         document.getElementById('game-status').innerText = message;
     });
@@ -42,7 +42,8 @@ function updateBoard(move, player) {
 // Gérer un clic sur une case du tableau
 function makeMove(move) {
     if (!currentRoom) return;
-    
+
+    // Envoyer le mouvement au serveur
     socket.emit('makeMove', { room: currentRoom, move: move, player: player });
 }
 
@@ -51,7 +52,7 @@ const board = document.getElementById('board');
 for (let i = 0; i < 9; i++) {
     const cell = document.createElement('div');
     cell.classList.add('cell');
-    cell.id = 'cell-' + i;
-    cell.onclick = () => makeMove(i);
+    cell.id = 'cell-' + i; // L'ID de chaque case
+    cell.onclick = () => makeMove(i); // Lorsqu'on clique sur une case, faire un mouvement
     board.appendChild(cell);
 }
