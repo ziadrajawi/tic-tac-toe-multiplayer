@@ -1,57 +1,85 @@
+const WebSocket = require('ws');
 const express = require('express');
-const http = require('http');
-const socketIo = require('socket.io');
+const path = require('path');
 
 const app = express();
-const server = http.createServer(app);
-const io = socketIo(server);
+const server = require('http').createServer(app);
+const wss = new WebSocket.Server({ server });
 
-let rooms = {
-    room1: [],
-    room2: [],
-    room3: []
-};
+let rooms = {}; // Structure pour stocker les joueurs et les salles.
 
-app.use(express.static('public')); // Sert les fichiers statiques (HTML, CSS, JS)
+// Servir les fichiers statiques
+app.use(express.static(path.join(__dirname, 'public')));
 
-io.on('connection', (socket) => {
-    console.log('Un joueur est connecté.');
+wss.on('connection', (ws) => {
+    console.log('New player connected.');
 
-    // Lorsque le joueur choisit une room
-    socket.on('joinRoom', (room) => {
-        if (rooms[room].length < 2) {
-            rooms[room].push(socket.id); // Ajouter le joueur à la room
-            socket.join(room); // Le joueur rejoint la room
-            socket.emit('roomJoined', room);
+    ws.on('message', (message) => {
+        const data = JSON.parse(message);
 
-            if (rooms[room].length === 2) {
-                io.to(room).emit('startGame', 'Les deux joueurs sont prêts !');
+        if (data.type === 'joinRoom') {
+            const roomId = data.roomId;
+
+            if (!rooms[roomId]) {
+                rooms[roomId] = [];
             }
-        } else {
-            socket.emit('roomFull', 'La room est déjà pleine.');
+
+            if (rooms[roomId].length < 2) {
+                rooms[roomId].push(ws);
+                ws.roomId = roomId;
+
+                // Notify all players in the room
+                rooms[roomId].forEach(client => {
+                    client.send(JSON.stringify({
+                        type: 'playerJoined',
+                        players: rooms[roomId].length
+                    }));
+                });
+
+                // Start game when 2 players are connected
+                if (rooms[roomId].length === 2) {
+                    rooms[roomId].forEach(client => {
+                        client.send(JSON.stringify({ type: 'startGame' }));
+                    });
+                }
+            } else {
+                ws.send(JSON.stringify({ type: 'roomFull' }));
+            }
+        } else if (data.type === 'move') {
+            const roomId = ws.roomId;
+
+            if (roomId && rooms[roomId]) {
+                rooms[roomId].forEach(client => {
+                    if (client !== ws) {
+                        client.send(JSON.stringify({
+                            type: 'move',
+                            index: data.index,
+                            player: data.player
+                        }));
+                    }
+                });
+            }
         }
     });
 
-    // Lorsqu'un joueur effectue un mouvement
-    socket.on('makeMove', (data) => {
-        const { room, move, player } = data;
-        io.to(room).emit('moveMade', { move, player });
-    });
+    ws.on('close', () => {
+        const roomId = ws.roomId;
 
-    // Lorsqu'un joueur se déconnecte
-    socket.on('disconnect', () => {
-        // Retirer le joueur de la room
-        for (let room in rooms) {
-            const index = rooms[room].indexOf(socket.id);
-            if (index !== -1) {
-                rooms[room].splice(index, 1);
-                io.to(room).emit('playerLeft', `Un joueur a quitté ${room}.`);
-                break;
+        if (roomId && rooms[roomId]) {
+            rooms[roomId] = rooms[roomId].filter(client => client !== ws);
+
+            // Notify remaining players in the room
+            rooms[roomId].forEach(client => {
+                client.send(JSON.stringify({ type: 'playerLeft' }));
+            });
+
+            if (rooms[roomId].length === 0) {
+                delete rooms[roomId];
             }
         }
     });
 });
 
-server.listen(3000, () => {
-    console.log('Serveur en écoute sur le port 3000');
+server.listen(8080, () => {
+    console.log('Server is running on http://localhost:8080');
 });

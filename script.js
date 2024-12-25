@@ -1,58 +1,85 @@
-const socket = io();
-let currentRoom = null;
-let player = 'X'; // Par défaut, le joueur 1 est 'X'
+const WebSocket = require('ws');
+const express = require('express');
+const path = require('path');
 
-// Rejoindre une room
-function joinRoom(room) {
-    currentRoom = room;
-    socket.emit('joinRoom', room);
-    
-    // Afficher un message de statut
-    document.getElementById('game-status').innerText = `Vous avez rejoint ${room}. En attente de l'autre joueur...`;
-    
-    socket.on('roomJoined', (room) => {
-        document.getElementById('game-status').innerText = `Bienvenue dans ${room}! Attendez que l'autre joueur rejoigne...`;
-        document.getElementById('game-board').style.display = 'block'; // Afficher le tableau de jeu
+const app = express();
+const server = require('http').createServer(app);
+const wss = new WebSocket.Server({ server });
+
+let rooms = {}; // Structure pour stocker les joueurs et les salles.
+
+// Servir les fichiers statiques
+app.use(express.static(path.join(__dirname, 'public')));
+
+wss.on('connection', (ws) => {
+    console.log('New player connected.');
+
+    ws.on('message', (message) => {
+        const data = JSON.parse(message);
+
+        if (data.type === 'joinRoom') {
+            const roomId = data.roomId;
+
+            if (!rooms[roomId]) {
+                rooms[roomId] = [];
+            }
+
+            if (rooms[roomId].length < 2) {
+                rooms[roomId].push(ws);
+                ws.roomId = roomId;
+
+                // Notify all players in the room
+                rooms[roomId].forEach(client => {
+                    client.send(JSON.stringify({
+                        type: 'playerJoined',
+                        players: rooms[roomId].length
+                    }));
+                });
+
+                // Start game when 2 players are connected
+                if (rooms[roomId].length === 2) {
+                    rooms[roomId].forEach(client => {
+                        client.send(JSON.stringify({ type: 'startGame' }));
+                    });
+                }
+            } else {
+                ws.send(JSON.stringify({ type: 'roomFull' }));
+            }
+        } else if (data.type === 'move') {
+            const roomId = ws.roomId;
+
+            if (roomId && rooms[roomId]) {
+                rooms[roomId].forEach(client => {
+                    if (client !== ws) {
+                        client.send(JSON.stringify({
+                            type: 'move',
+                            index: data.index,
+                            player: data.player
+                        }));
+                    }
+                });
+            }
+        }
     });
 
-    socket.on('roomFull', (message) => {
-        alert(message);
+    ws.on('close', () => {
+        const roomId = ws.roomId;
+
+        if (roomId && rooms[roomId]) {
+            rooms[roomId] = rooms[roomId].filter(client => client !== ws);
+
+            // Notify remaining players in the room
+            rooms[roomId].forEach(client => {
+                client.send(JSON.stringify({ type: 'playerLeft' }));
+            });
+
+            if (rooms[roomId].length === 0) {
+                delete rooms[roomId];
+            }
+        }
     });
+});
 
-    socket.on('startGame', (message) => {
-        document.getElementById('game-status').innerText = message;
-    });
-
-    socket.on('moveMade', (data) => {
-        const { move, player } = data;
-        updateBoard(move, player);
-    });
-
-    socket.on('playerLeft', (message) => {
-        document.getElementById('game-status').innerText = message;
-    });
-}
-
-// Mettre à jour le tableau de jeu après un mouvement
-function updateBoard(move, player) {
-    const cell = document.getElementById('cell-' + move);
-    cell.innerText = player;
-}
-
-// Gérer un clic sur une case du tableau
-function makeMove(move) {
-    if (!currentRoom) return;
-
-    // Envoyer le mouvement au serveur
-    socket.emit('makeMove', { room: currentRoom, move: move, player: player });
-}
-
-// Créer dynamiquement les cases du tableau de Tic Tac Toe
-const board = document.getElementById('board');
-for (let i = 0; i < 9; i++) {
-    const cell = document.createElement('div');
-    cell.classList.add('cell');
-    cell.id = 'cell-' + i; // L'ID de chaque case
-    cell.onclick = () => makeMove(i); // Lorsqu'on clique sur une case, faire un mouvement
-    board.appendChild(cell);
-}
+server.listen(8080, () => {
+    console.log('Server is running on http://localhost:8080');
+});

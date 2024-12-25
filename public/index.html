@@ -1,29 +1,85 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tic Tac Toe</title>
-    <link rel="stylesheet" href="styles.css">
-</head>
-<body>
-    <div id="username-container">
-        <label for="username">Enter your username:</label>
-        <input type="text" id="username" placeholder="Your Name">
-        <button onclick="joinGame()">Join Game</button>
-    </div>
+<script>
+    const socket = new WebSocket('wss://your-backend-url'); // Remplacez par l'URL du backend déployé
+    let roomId = null;
+    let currentPlayer = 'X';
+    let board = Array(9).fill(null);
 
-    <div id="game-container" style="display:none;">
-        <h1>Tic Tac Toe</h1>
-        <div id="board"></div>
-        <div id="chat-container">
-            <div id="chat-box"></div>
-            <input type="text" id="chat-input" placeholder="Type a message" onkeydown="sendChat(event)">
-        </div>
-        <div id="game-status"></div>
-    </div>
+    socket.onmessage = (event) => {
+        const data = JSON.parse(event.data);
 
-    <script src="/socket.io/socket.io.js"></script>
-    <script src="script.js"></script>
-</body>
-</html>
+        if (data.type === 'playerJoined') {
+            document.getElementById('game-status').textContent = `Players in room: ${data.players}`;
+        } else if (data.type === 'startGame') {
+            document.getElementById('game-status').textContent = 'Game started!';
+            currentPlayer = 'X'; // Définir le joueur qui commence
+        } else if (data.type === 'move') {
+            board[data.index] = data.player;
+            renderBoard();
+            checkGameStatus();
+        } else if (data.type === 'playerLeft') {
+            document.getElementById('game-status').textContent = 'Player left the game.';
+        } else if (data.type === 'roomFull') {
+            alert('Room is full!');
+        }
+    };
+
+    document.querySelectorAll('.room').forEach(room => {
+        room.addEventListener('click', () => {
+            roomId = room.dataset.roomId;
+            socket.send(JSON.stringify({ type: 'joinRoom', roomId }));
+        });
+    });
+
+    function makeMove(index) {
+        if (!board[index]) {
+            board[index] = currentPlayer;
+            renderBoard();
+            checkGameStatus();
+
+            socket.send(JSON.stringify({
+                type: 'move',
+                index,
+                player: currentPlayer
+            }));
+
+            currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
+        }
+    }
+
+    function renderBoard() {
+        const gameBoardElement = document.getElementById('game-board');
+        gameBoardElement.innerHTML = '';
+        board.forEach((cell, index) => {
+            const cellElement = document.createElement('div');
+            cellElement.classList.add('cell');
+            cellElement.textContent = cell;
+            cellElement.addEventListener('click', () => makeMove(index));
+            gameBoardElement.appendChild(cellElement);
+        });
+    }
+
+    function checkGameStatus() {
+        const winner = checkWinner();
+        if (winner) {
+            document.getElementById('game-status').textContent = winner === 'Draw' ? 'It\'s a draw!' : `${winner} wins!`;
+            document.getElementById('game-board').style.pointerEvents = 'none';
+        }
+    }
+
+    function checkWinner() {
+        const winningCombinations = [
+            [0, 1, 2], [3, 4, 5], [6, 7, 8],
+            [0, 3, 6], [1, 4, 7], [2, 5, 8],
+            [0, 4, 8], [2, 4, 6]
+        ];
+
+        for (const combination of winningCombinations) {
+            const [a, b, c] = combination;
+            if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+                return board[a];
+            }
+        }
+
+        return board.includes(null) ? null : 'Draw';
+    }
+</script>
