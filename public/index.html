@@ -1,75 +1,29 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Tic Tac Toe Multijoueur</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      text-align: center;
-      background-color: #f4f4f9;
-      margin: 0;
-      padding: 20px;
-    }
-    h1 {
-      margin-bottom: 20px;
-    }
-    .board {
-      display: grid;
-      grid-template-columns: repeat(3, 100px);
-      grid-template-rows: repeat(3, 100px);
-      gap: 5px;
-      margin: 0 auto;
-    }
-    .cell {
-      width: 100px;
-      height: 100px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background-color: white;
-      border: 2px solid #ccc;
-      font-size: 36px;
-      font-weight: bold;
-      cursor: pointer;
-    }
-    .cell.taken {
-      cursor: not-allowed;
-    }
-    .message {
-      margin-top: 20px;
-      font-size: 18px;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tic Tac Toe</title>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <h1>Tic Tac Toe Multijoueur</h1>
-  <div class="board" id="board"></div>
-  <div class="message" id="message"></div>
-  <script src="/socket.io/socket.io.js"></script>
-  <script>
-    const socket = io();
-    const boardElement = document.getElementById('board');
-    const messageElement = document.getElementById('message');
+    <div id="username-container">
+        <label for="username">Enter your username:</label>
+        <input type="text" id="username" placeholder="Your Name">
+        <button onclick="joinGame()">Join Game</button>
+    </div>
 
-    socket.on('board', ({ board, currentPlayer }) => {
-      boardElement.innerHTML = '';
-      board.forEach((cell, index) => {
-        const cellElement = document.createElement('div');
-        cellElement.classList.add('cell');
-        if (cell) cellElement.classList.add('taken');
-        cellElement.textContent = cell;
-        cellElement.addEventListener('click', () => {
-          socket.emit('play', index);
-        });
-        boardElement.appendChild(cellElement);
-      });
-    });
+    <div id="game-container" style="display:none;">
+        <h1>Tic Tac Toe</h1>
+        <div id="board"></div>
+        <div id="chat-container">
+            <input type="text" id="chat-input" placeholder="Type a message" onkeydown="sendChat(event)">
+            <div id="chat-box"></div>
+        </div>
+        <div id="game-status"></div>
+    </div>
 
-    socket.on('message', (msg) => {
-      messageElement.textContent = msg;
-    });
-  </script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="script.js"></script>
 </body>
 </html>
