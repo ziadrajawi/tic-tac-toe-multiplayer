@@ -1,62 +1,53 @@
 const socket = io();
+let currentRoom = null;
+let player = 'X'; // Par défaut, le joueur 1 est 'X'
 
-let username = '';
-let gameId = null;
-let availableRooms = ['room1', 'room2', 'room3']; // Trois salles disponibles
-let playersInRooms = {
-    room1: [],
-    room2: [],
-    room3: []
-};
-
-document.getElementById('game-container').style.display = 'none';
-
-// Fonction pour rejoindre une partie
-function joinGame() {
-    username = document.getElementById('username').value.trim();
-    if (username === '') {
-        alert('Please enter a valid username');
-        return;
-    }
+// Rejoindre une room
+function joinRoom(room) {
+    currentRoom = room;
+    socket.emit('joinRoom', room);
     
-    // Vérifier si le nom d'utilisateur est déjà pris
-    socket.emit('checkUsername', username);
+    // Afficher un message de statut
+    document.getElementById('game-status').innerText = `Vous avez rejoint ${room}. En attente de l'autre joueur...`;
+    
+    socket.on('roomJoined', (room) => {
+        document.getElementById('game-status').innerText = `Bienvenue dans ${room}!`;
+        document.getElementById('game-board').style.display = 'block';
+    });
+
+    socket.on('roomFull', (message) => {
+        alert(message);
+    });
+
+    socket.on('startGame', (message) => {
+        document.getElementById('game-status').innerText = message;
+    });
+    
+    socket.on('moveMade', (data) => {
+        const { move, player } = data;
+        updateBoard(move, player);
+    });
 }
 
-// Fonction pour envoyer un message dans le chat
-function sendChat(event) {
-    if (event.key === 'Enter') {
-        const message = document.getElementById('chat-input').value;
-        if (message.trim()) {
-            socket.emit('chatMessage', { message, gameId, username });
-            document.getElementById('chat-input').value = '';
-        }
-    }
+// Mettre à jour le tableau de jeu après un mouvement
+function updateBoard(move, player) {
+    const cell = document.getElementById('cell-' + move);
+    cell.innerText = player;
 }
 
-// Affichage des messages du chat
-socket.on('chatMessage', (data) => {
-    const chatBox = document.getElementById('chat-box');
-    chatBox.innerHTML += `<p><strong>${data.username}: </strong>${data.message}</p>`;
-    chatBox.scrollTop = chatBox.scrollHeight; // Faites défiler jusqu'en bas
-});
+// Gérer un clic sur une case du tableau
+function makeMove(move) {
+    if (!currentRoom) return;
+    
+    socket.emit('makeMove', { room: currentRoom, move: move, player: player });
+}
 
-// Affichage du statut du jeu
-socket.on('gameStatus', (status) => {
-    document.getElementById('game-status').innerHTML = status;
-});
-
-// Liste des utilisateurs disponibles
-socket.on('userAvailable', (available) => {
-    if (available) {
-        // Créer une nouvelle partie ou rejoindre une partie existante
-        let room = availableRooms.find(room => playersInRooms[room].length < 2);
-        if (room) {
-            socket.emit('joinGame', { username, room });
-        } else {
-            alert('No rooms available at the moment.');
-        }
-    } else {
-        alert('Username already taken. Please choose another one.');
-    }
-});
+// Créer dynamiquement les cases du tableau de Tic Tac Toe
+const board = document.getElementById('board');
+for (let i = 0; i < 9; i++) {
+    const cell = document.createElement('div');
+    cell.classList.add('cell');
+    cell.id = 'cell-' + i;
+    cell.onclick = () => makeMove(i);
+    board.appendChild(cell);
+}
