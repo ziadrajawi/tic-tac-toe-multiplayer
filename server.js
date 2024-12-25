@@ -8,68 +8,65 @@ const io = socketIo(server);
 
 app.use(express.static('public'));
 
-let games = {}; // Dictionnaire pour stocker les informations des jeux actifs
+let playersInRooms = {
+    room1: [],
+    room2: [],
+    room3: []
+};
+let usernames = new Set(); // Garder la trace des noms d'utilisateurs pris
 
 // Quand un joueur se connecte
 io.on('connection', (socket) => {
     console.log('A user connected:', socket.id);
 
+    // Vérification de l'unicité du nom d'utilisateur
+    socket.on('checkUsername', (username) => {
+        if (usernames.has(username)) {
+            socket.emit('userAvailable', false);
+        } else {
+            usernames.add(username);
+            socket.emit('userAvailable', true);
+        }
+    });
+
     // Quand un joueur rejoint un jeu
     socket.on('joinGame', (data) => {
-        const { username } = data;
-        console.log(`${username} joined the game`);
+        const { username, room } = data;
 
-        // Créer une nouvelle partie si nécessaire
-        let gameId;
-        for (let id in games) {
-            if (games[id].players.length < 2) {
-                gameId = id;
-                break;
+        if (playersInRooms[room].length < 2) {
+            playersInRooms[room].push({ username, id: socket.id });
+            socket.join(room);
+
+            // Démarrer le jeu lorsque 2 joueurs sont dans la salle
+            if (playersInRooms[room].length === 2) {
+                io.to(room).emit('gameStatus', `Game starting in ${room}!`);
             }
+
+            // Envoyer le statut du jeu au joueur
+            socket.emit('gameStatus', `Welcome ${username}! You are in ${room}`);
+        } else {
+            socket.emit('gameStatus', 'This room is full. Please wait for a new game.');
         }
+    });
 
-        // Si aucune partie n'existe, crée une nouvelle partie
-        if (!gameId) {
-            gameId = `${Date.now()}`; // Crée un identifiant unique pour la partie
-            games[gameId] = {
-                players: [],
-                chat: []
-            };
-        }
-
-        // Ajouter le joueur à la partie
-        games[gameId].players.push({ username, id: socket.id });
-
-        // S'il y a 2 joueurs, la partie commence
-        if (games[gameId].players.length === 2) {
-            io.to(games[gameId].players[0].id).emit('gameStatus', 'Game starting!');
-            io.to(games[gameId].players[1].id).emit('gameStatus', 'Game starting!');
-        }
-
-        // Envoie l'ID du jeu au joueur
-        socket.emit('gameStatus', `Welcome ${username}! You are in game ${gameId}`);
-        socket.join(gameId);
-        socket.emit('gameStatus', `Game ID: ${gameId}`);
-
-        // Gérer le chat
-        socket.on('chatMessage', (data) => {
-            const { message, gameId, username } = data;
-            if (games[gameId]) {
-                games[gameId].chat.push({ username, message });
-                io.to(gameId).emit('chatMessage', { username, message });
-            }
-        });
+    // Gestion du chat
+    socket.on('chatMessage', (data) => {
+        const { message, room, username } = data;
+        io.to(room).emit('chatMessage', { username, message });
     });
 
     // Quand un joueur se déconnecte
     socket.on('disconnect', () => {
         console.log('A user disconnected:', socket.id);
-        for (let gameId in games) {
-            games[gameId].players = games[gameId].players.filter(player => player.id !== socket.id);
-            if (games[gameId].players.length === 0) {
-                delete games[gameId];
-            }
+        // Supprimer l'utilisateur des salles et des noms d'utilisateur
+        for (let room in playersInRooms) {
+            playersInRooms[room] = playersInRooms[room].filter(player => player.id !== socket.id);
         }
+        usernames.forEach((user, index) => {
+            if (user === socket.id) {
+                usernames.delete(user);
+            }
+        });
     });
 });
 

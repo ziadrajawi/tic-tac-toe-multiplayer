@@ -1,0 +1,54 @@
+/* Global Styles */
+body {
+    font-family: Arial, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+    flex-direction: column;
+}
+
+#game-container {
+    display: flex;
+    justify-content: space-between;
+    width: 80%;
+}
+
+#chat-container {
+    width: 300px;
+    height: 80%;
+    margin-left: 20px;
+    border-left: 2px solid #ccc;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+#chat-box {
+    overflow-y: auto;
+    flex-grow: 1;
+    border-bottom: 2px solid #ccc;
+    padding: 10px;
+    height: 80%;
+}
+
+#chat-input {
+    padding: 10px;
+    width: 100%;
+}
+
+#username-container {
+    text-align: center;
+}
+
+#username-container input {
+    padding: 10px;
+    margin-top: 10px;
+}
+
+button {
+    padding: 10px;
+    margin-top: 10px;
+    cursor: pointer;
+}
