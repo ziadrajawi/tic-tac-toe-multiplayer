@@ -27,6 +27,10 @@ function joinRoom(room) {
         const { move, player } = data;
         updateBoard(move, player);
     });
+    
+    socket.on('playerLeft', (message) => {
+        document.getElementById('game-status').innerText = message;
+    });
 }
 
 // Mettre à jour le tableau de jeu après un mouvement
