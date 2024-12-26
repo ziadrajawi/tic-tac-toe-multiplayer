@@ -12,12 +12,12 @@ let currentPlayer = 'X';
 
 io.on('connection', (socket) => {
   if (players.length >= 2) {
-    socket.emit('message', 'La salle est pleine.');
+    socket.emit('message', 'La salle est pleine comme ta mams.');
     return socket.disconnect();
   }
 
   players.push(socket.id);
-  socket.emit('message', `Bienvenue ! Vous êtes le joueur ${players.length === 1 ? 'X' : 'O'}.`);
+  socket.emit('message', `Bienvenue Cher Fils de Pute ! Vous êtes le joueur ${players.length === 1 ? 'X' : 'O'}.`);
   socket.emit('board', { board, currentPlayer });
 
   socket.on('play', (index) => {
@@ -42,7 +42,7 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => {
     players = players.filter((id) => id !== socket.id);
     resetGame();
-    io.emit('message', 'Un joueur s\'est déconnecté. La partie a été réinitialisée.');
+    io.emit('message', 'le fdp s\'est déconnecté. La partie a été réinitialisée.');
   });
 });
 
