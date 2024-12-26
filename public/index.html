@@ -1,106 +1,75 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tic Tac Toe</title>
-    <link rel="stylesheet" href="styles.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tic Tac Toe Multijoueur</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      background-color: #f4f4f9;
+      margin: 0;
+      padding: 20px;
+    }
+    h1 {
+      margin-bottom: 20px;
+    }
+    .board {
+      display: grid;
+      grid-template-columns: repeat(3, 100px);
+      grid-template-rows: repeat(3, 100px);
+      gap: 5px;
+      margin: 0 auto;
+    }
+    .cell {
+      width: 100px;
+      height: 100px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: white;
+      border: 2px solid #ccc;
+      font-size: 36px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .cell.taken {
+      cursor: not-allowed;
+    }
+    .message {
+      margin-top: 20px;
+      font-size: 18px;
+    }
+  </style>
 </head>
 <body>
-    <h1>Tic Tac Toe</h1>
-    <div id="game-status">Waiting for players...</div>
-    <div id="game-board"></div>
-    <div id="rooms">
-        <button class="room" data-room-id="room1">Join Room 1</button>
-        <button class="room" data-room-id="room2">Join Room 2</button>
-        <button class="room" data-room-id="room3">Join Room 3</button>
-    </div>
-    <script src="script.js"></script>
-</body>
-</html>
+  <h1>Tic Tac Toe Multijoueur Ratio</h1>
+  <div class="board" id="board"></div>
+  <div class="message" id="message"></div>
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    const boardElement = document.getElementById('board');
+    const messageElement = document.getElementById('message');
 
-<script>
-    const socket = new WebSocket('wss://your-backend-url'); // Remplacez par l'URL du backend déployé
-    let roomId = null;
-    let currentPlayer = 'X';
-    let board = Array(9).fill(null);
-
-    socket.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-
-        if (data.type === 'playerJoined') {
-            document.getElementById('game-status').textContent = `Players in room: ${data.players}`;
-        } else if (data.type === 'startGame') {
-            document.getElementById('game-status').textContent = 'Game started!';
-            currentPlayer = 'X'; // Définir le joueur qui commence
-        } else if (data.type === 'move') {
-            board[data.index] = data.player;
-            renderBoard();
-            checkGameStatus();
-        } else if (data.type === 'playerLeft') {
-            document.getElementById('game-status').textContent = 'Player left the game.';
-        } else if (data.type === 'roomFull') {
-            alert('Room is full!');
-        }
-    };
-
-    document.querySelectorAll('.room').forEach(room => {
-        room.addEventListener('click', () => {
-            roomId = room.dataset.roomId;
-            socket.send(JSON.stringify({ type: 'joinRoom', roomId }));
+    socket.on('board', ({ board, currentPlayer }) => {
+      boardElement.innerHTML = '';
+      board.forEach((cell, index) => {
+        const cellElement = document.createElement('div');
+        cellElement.classList.add('cell');
+        if (cell) cellElement.classList.add('taken');
+        cellElement.textContent = cell;
+        cellElement.addEventListener('click', () => {
+          socket.emit('play', index);
         });
+        boardElement.appendChild(cellElement);
+      });
     });
 
-    function makeMove(index) {
-        if (!board[index]) {
-            board[index] = currentPlayer;
-            renderBoard();
-            checkGameStatus();
-
-            socket.send(JSON.stringify({
-                type: 'move',
-                index,
-                player: currentPlayer
-            }));
-
-            currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
-        }
-    }
-
-    function renderBoard() {
-        const gameBoardElement = document.getElementById('game-board');
-        gameBoardElement.innerHTML = '';
-        board.forEach((cell, index) => {
-            const cellElement = document.createElement('div');
-            cellElement.classList.add('cell');
-            cellElement.textContent = cell;
-            cellElement.addEventListener('click', () => makeMove(index));
-            gameBoardElement.appendChild(cellElement);
-        });
-    }
-
-    function checkGameStatus() {
-        const winner = checkWinner();
-        if (winner) {
-            document.getElementById('game-status').textContent = winner === 'Draw' ? 'It\'s a draw!' : `${winner} wins!`;
-            document.getElementById('game-board').style.pointerEvents = 'none';
-        }
-    }
-
-    function checkWinner() {
-        const winningCombinations = [
-            [0, 1, 2], [3, 4, 5], [6, 7, 8],
-            [0, 3, 6], [1, 4, 7], [2, 5, 8],
-            [0, 4, 8], [2, 4, 6]
-        ];
-
-        for (const combination of winningCombinations) {
-            const [a, b, c] = combination;
-            if (board[a] && board[a] === board[b] && board[a] === board[c]) {
-                return board[a];
-            }
-        }
-
-        return board.includes(null) ? null : 'Draw';
-    }
-</script>
+    socket.on('message', (msg) => {
+      messageElement.textContent = msg;
+    });
+  </script>
+</body>
+</html>
